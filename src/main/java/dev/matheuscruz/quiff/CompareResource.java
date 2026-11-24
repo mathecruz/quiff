@@ -1,5 +1,10 @@
 package dev.matheuscruz.quiff;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -10,6 +15,7 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
@@ -82,6 +88,59 @@ public class CompareResource {
         return new Comparison(base, head, mergeBase, commits(mergeBase, headCommit), diff.toString());
     }
 
+    /** Lines of a file on the compare side, used to expand the context around diff hunks. */
+    @GET
+    @Path("/file")
+    public FileContent file(@QueryParam("ref") String ref, @QueryParam("path") String path) {
+        java.nio.file.Path file = repoPath(path);
+        String content;
+        if (WORKTREE.equals(ref)) {
+            content = readWorktreeFile(file);
+        } else {
+            String relative = git.repo().relativize(file).toString().replace('\\', '/');
+            String blob = git.run(Set.of(0, 1, 128), "rev-parse", "--verify", "--quiet", "--end-of-options",
+                    resolve(ref) + ":" + relative).strip();
+            if (blob.isEmpty()) {
+                throw new NotFoundException("No " + path + " in " + ref);
+            }
+            content = git.run("cat-file", "blob", blob);
+        }
+        // Split on \n only, like git numbers lines; a trailing newline does not start another line.
+        String body = content.endsWith("\n") ? content.substring(0, content.length() - 1) : content;
+        return new FileContent(content.isEmpty() ? List.of() : List.of(body.split("\n", -1)));
+    }
+
+    // Paths come from the browser too: only accept files inside the repository.
+    private java.nio.file.Path repoPath(String path) {
+        if (path == null || path.isBlank()) {
+            throw new BadRequestException("Missing path");
+        }
+        try {
+            java.nio.file.Path file = git.repo().resolve(path).normalize();
+            if (!file.startsWith(git.repo()) || file.equals(git.repo())) {
+                throw new BadRequestException("Path outside the repository: " + path);
+            }
+            return file;
+        } catch (InvalidPathException e) {
+            throw new BadRequestException("Invalid path: " + path);
+        }
+    }
+
+    private String readWorktreeFile(java.nio.file.Path file) {
+        try {
+            if (!Files.isRegularFile(file)) {
+                throw new NotFoundException("No such file: " + git.repo().relativize(file));
+            }
+            // Symlinks could still point outside the repository.
+            if (!file.toRealPath().startsWith(git.repo().toRealPath())) {
+                throw new BadRequestException("Path outside the repository: " + git.repo().relativize(file));
+            }
+            return new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     private String resolve(String ref) {
         if (ref == null || ref.isBlank() || !SAFE_REF.matcher(ref).matches()) {
             throw new BadRequestException("Invalid ref: " + ref);
@@ -131,6 +190,10 @@ public class CompareResource {
 
     @RegisterForReflection
     public record Comparison(String base, String head, String mergeBase, List<Commit> commits, String diff) {
+    }
+
+    @RegisterForReflection
+    public record FileContent(List<String> lines) {
     }
 
     @Provider
