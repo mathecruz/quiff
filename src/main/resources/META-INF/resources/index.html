@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quiff</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/diff2html@3.4.48/bundles/css/diff2html.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<style>
+  :root {
+    --bg: #ffffff; --bg-subtle: #f6f8fa; --border: #d0d7de; --fg: #1f2328; --fg-muted: #59636e;
+    --accent: #0969da; --add: #1a7f37; --del: #d1242f; --tab-active: #fd8c73; --hover: #eaeef2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117; --bg-subtle: #151b23; --border: #3d444d; --fg: #f0f6fc; --fg-muted: #9198a1;
+      --accent: #4493f8; --add: #3fb950; --del: #f85149; --tab-active: #f78166; --hover: #212830;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif; }
+  .page { max-width: 1680px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 24px; font-weight: 400; margin: 0 0 4px; }
+  .lead { color: var(--fg-muted); margin: 0 0 16px; }
+  .range { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 6px; }
+  .range label { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); padding: 3px 4px 3px 10px; color: var(--fg-muted); }
+  .range select { border: 0; background: transparent; color: var(--fg); font: inherit; font-weight: 600; max-width: 320px; }
+  .arrow { color: var(--fg-muted); }
+  .opts { margin-left: auto; display: flex; gap: 8px; align-items: center; color: var(--fg-muted); }
+  button { font: inherit; color: var(--fg); background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 6px; padding: 4px 12px; cursor: pointer; }
+  button:hover { background: var(--hover); }
+  .summary { display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; margin: 16px 0; padding: 10px; border: 1px solid var(--border); border-radius: 6px; color: var(--fg-muted); }
+  .summary b { color: var(--fg); }
+  .add { color: var(--add); } .del { color: var(--del); }
+  .tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .tab { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 12px; }
+  .tab.active { border-bottom-color: var(--tab-active); font-weight: 600; }
+  .tab:hover { background: none; color: var(--accent); }
+  .counter { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 10px; background: var(--hover); font-size: 12px; text-align: center; margin-left: 4px; }
+  .hidden { display: none !important; }
+  .commit-day { color: var(--fg-muted); margin: 16px 0 8px; font-size: 13px; }
+  .commits { border: 1px solid var(--border); border-radius: 6px; }
+  .commit { display: flex; gap: 12px; justify-content: space-between; padding: 8px 16px; border-top: 1px solid var(--border); }
+  .commit:first-child { border-top: 0; }
+  .commit .meta { color: var(--fg-muted); font-size: 12px; }
+  .sha { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--fg-muted); }
+  .layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; align-items: start; }
+  .tree { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: auto; border: 1px solid var(--border); border-radius: 6px; padding: 8px 0; font-size: 13px; }
+  .tree-filter { margin: 0 8px 8px; width: calc(100% - 16px); padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); font: inherit; }
+  .node { display: flex; align-items: center; gap: 6px; padding: 2px 8px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .node:hover { background: var(--hover); }
+  .node.dir { color: var(--fg-muted); cursor: default; }
+  .node.viewed .name { color: var(--fg-muted); text-decoration: line-through; }
+  .node .name { overflow: hidden; text-overflow: ellipsis; }
+  .node .stat { margin-left: auto; font-size: 11px; }
+  .status { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+  .s-added { background: var(--add); } .s-deleted { background: var(--del); } .s-changed { background: #d29922; } .s-renamed { background: var(--accent); }
+  .empty, .error { padding: 32px; text-align: center; color: var(--fg-muted); border: 1px solid var(--border); border-radius: 6px; }
+  .error { color: var(--del); white-space: pre-wrap; }
+  .d2h-file-wrapper { border-color: var(--border); border-radius: 6px; scroll-margin-top: 12px; }
+  .d2h-file-header { position: sticky; top: 0; z-index: 2; }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .tree { display: none; }
+    .opts { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Comparing changes <span class="lead" id="repo"></span></h1>
+  <p class="lead">Choose two refs to see what changed. "Working tree" includes staged, unstaged and untracked files.</p>
+
+  <div class="range">
+    <label>base: <select id="base"></select></label>
+    <span class="arrow">←</span>
+    <label>compare: <select id="head"></select></label>
+    <div class="opts">
+      <label style="border:0;background:none;padding:0"><input type="checkbox" id="ws"> Hide whitespace</label>
+      <button id="refresh" title="Reload from git">↻ Refresh</button>
+    </div>
+  </div>
+
+  <div class="summary" id="summary"></div>
+
+  <div class="tabs">
+    <button class="tab" data-tab="commits">Commits <span class="counter" id="commit-count">0</span></button>
+    <button class="tab active" data-tab="files">Files changed <span class="counter" id="file-count">0</span></button>
+  </div>
+
+  <section id="commits-panel" class="hidden"></section>
+  <section id="files-panel" class="layout">
+    <nav class="tree"><input class="tree-filter" id="filter" placeholder="Filter files…"><div id="tree"></div></nav>
+    <div id="diff"></div>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/diff2html@3.4.48/bundles/js/diff2html.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/diff2html@3.4.48/bundles/js/diff2html-ui.min.js"></script>
+<script>
+const WORKTREE = 'WORKTREE';
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+async function api(path) {
+  const res = await fetch(path);
+  if (!res.ok) throw new Error(await res.text() || res.statusText);
+  return res.json();
+}
+
+function option(value, label, selected) {
+  return `<option value="${esc(value)}"${value === selected ? ' selected' : ''}>${esc(label)}</option>`;
+}
+
+function fillSelect(select, refs, selected, withWorktree) {
+  const group = (label, items) => items.length
+    ? `<optgroup label="${label}">${items.map(r => option(r, r, selected)).join('')}</optgroup>` : '';
+  select.innerHTML =
+    (withWorktree ? option(WORKTREE, `Working tree (${refs.current} + uncommitted)`, selected) : '') +
+    group('Branches', refs.branches) + group('Remote branches', refs.remotes) + group('Tags', refs.tags);
+}
+
+function fileName(f) {
+  return f.isDeleted ? f.oldName : f.newName;
+}
+
+function fileStatus(f) {
+  if (f.isNew) return 'added';
+  if (f.isDeleted) return 'deleted';
+  if (f.isRename) return 'renamed';
+  return 'changed';
+}
+
+function renderSummary(data, files) {
+  const add = files.reduce((n, f) => n + f.addedLines, 0);
+  const del = files.reduce((n, f) => n + f.deletedLines, 0);
+  $('summary').innerHTML =
+    `<span><b>${data.commits.length}</b> commit${data.commits.length === 1 ? '' : 's'}</span>` +
+    `<span><b>${files.length}</b> file${files.length === 1 ? '' : 's'} changed</span>` +
+    `<span><b class="add">+${add}</b> <b class="del">−${del}</b></span>` +
+    `<span>merge base <span class="sha">${esc(data.mergeBase.slice(0, 9))}</span></span>`;
+  $('commit-count').textContent = data.commits.length;
+  $('file-count').textContent = files.length;
+}
+
+function renderCommits(commits) {
+  if (!commits.length) {
+    $('commits-panel').innerHTML = '<div class="empty">No commits between these refs.</div>';
+    return;
+  }
+  const byDay = new Map();
+  for (const c of commits) {
+    const day = new Date(c.date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    if (!byDay.has(day)) byDay.set(day, []);
+    byDay.get(day).push(c);
+  }
+  $('commits-panel').innerHTML = [...byDay].map(([day, list]) =>
+    `<div class="commit-day">Commits on ${esc(day)}</div><div class="commits">` +
+    list.map(c => `<div class="commit"><div><div>${esc(c.subject)}</div>` +
+      `<div class="meta">${esc(c.author)} committed ${esc(new Date(c.date).toLocaleString())}</div></div>` +
+      `<span class="sha" title="${esc(c.sha)}">${esc(c.shortSha)}</span></div>`).join('') +
+    '</div>').join('');
+}
+
+// Folder tree like GitHub's: chains of single-child folders collapse into one row.
+function buildTree(files) {
+  const root = { dirs: new Map(), files: [] };
+  files.forEach((f, index) => {
+    const parts = fileName(f).split('/');
+    let node = root;
+    for (const dir of parts.slice(0, -1)) {
+      if (!node.dirs.has(dir)) node.dirs.set(dir, { dirs: new Map(), files: [] });
+      node = node.dirs.get(dir);
+    }
+    node.files.push({ name: parts[parts.length - 1], file: f, index });
+  });
+  return root;
+}
+
+function renderTree(node, depth = 0) {
+  let html = '';
+  for (let [name, child] of [...node.dirs].sort(([a], [b]) => a.localeCompare(b))) {
+    while (child.files.length === 0 && child.dirs.size === 1) {
+      const [[next, grandchild]] = child.dirs;
+      name += '/' + next;
+      child = grandchild;
+    }
+    html += `<div class="node dir" style="padding-left:${8 + depth * 14}px">📁 <span class="name">${esc(name)}</span></div>`;
+    html += renderTree(child, depth + 1);
+  }
+  for (const { name, file, index } of node.files.sort((a, b) => a.name.localeCompare(b.name))) {
+    html += `<div class="node file" data-index="${index}" data-path="${esc(fileName(file))}" style="padding-left:${8 + depth * 14}px" title="${esc(fileName(file))}">` +
+      `<span class="status s-${fileStatus(file)}"></span><span class="name">${esc(name)}</span>` +
+      `<span class="stat"><span class="add">+${file.addedLines}</span> <span class="del">−${file.deletedLines}</span></span></div>`;
+  }
+  return html;
+}
+
+function renderFiles(files) {
+  if (!files.length) {
+    $('tree').innerHTML = '';
+    $('diff').innerHTML = '<div class="empty">No changes between these refs.</div>';
+    return;
+  }
+  $('tree').innerHTML = renderTree(buildTree(files));
+  const ui = new Diff2HtmlUI($('diff'), files, {
+    outputFormat: 'line-by-line',
+    drawFileList: false,
+    fileContentToggle: true,
+    matching: 'lines',
+    highlight: true,
+    colorScheme: 'auto',
+  });
+  ui.draw();
+  ui.highlightCode();
+
+  const wrappers = [...$('diff').querySelectorAll('.d2h-file-wrapper')];
+  $('tree').querySelectorAll('.node.file').forEach(node => {
+    node.addEventListener('click', () => wrappers[node.dataset.index]?.scrollIntoView({ behavior: 'smooth' }));
+  });
+  // Mirror diff2html's "Viewed" checkbox in the tree.
+  wrappers.forEach((wrapper, index) => {
+    wrapper.querySelector('.d2h-file-collapse-input')?.addEventListener('change', e => {
+      $('tree').querySelector(`.node.file[data-index="${index}"]`)?.classList.toggle('viewed', e.target.checked);
+    });
+  });
+  applyFilter();
+}
+
+function applyFilter() {
+  const q = $('filter').value.toLowerCase();
+  $('tree').querySelectorAll('.node.file').forEach(n => n.classList.toggle('hidden', !n.dataset.path.toLowerCase().includes(q)));
+  $('tree').querySelectorAll('.node.dir').forEach(n => n.classList.toggle('hidden', q !== ''));
+}
+
+async function load() {
+  const base = $('base').value, head = $('head').value, ws = $('ws').checked;
+  const params = new URLSearchParams({ base, head });
+  if (ws) params.set('w', 'true');
+  history.replaceState(null, '', '?' + params);
+  $('diff').innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const data = await api('/api/compare?' + params);
+    const files = Diff2Html.parse(data.diff, { matching: 'lines' });
+    renderSummary(data, files);
+    renderCommits(data.commits);
+    renderFiles(files);
+  } catch (e) {
+    $('summary').innerHTML = '';
+    $('tree').innerHTML = '';
+    $('diff').innerHTML = `<div class="error">${esc(e.message)}</div>`;
+  }
+}
+
+async function init() {
+  const refs = await api('/api/refs');
+  const params = new URLSearchParams(location.search);
+  $('repo').textContent = '— ' + refs.repository;
+  document.title = 'Compare · ' + refs.repository;
+  fillSelect($('base'), refs, params.get('base') || refs.defaultBase, false);
+  fillSelect($('head'), refs, params.get('head') || WORKTREE, true);
+  $('ws').checked = params.get('w') === 'true';
+  for (const id of ['base', 'head', 'ws']) $(id).addEventListener('change', load);
+  $('refresh').addEventListener('click', load);
+  $('filter').addEventListener('input', applyFilter);
+  document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
+    $('commits-panel').classList.toggle('hidden', tab.dataset.tab !== 'commits');
+    $('files-panel').classList.toggle('hidden', tab.dataset.tab !== 'files');
+  }));
+  await load();
+}
+
+init().catch(e => { $('diff').innerHTML = `<div class="error">${esc(e.message)}</div>`; });
+</script>
+</body>
+</html>

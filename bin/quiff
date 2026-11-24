@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Opens a GitHub-style compare page for the Git repository in the current directory.
+# Usage: quiff [base]   (also works as `git quiff` with the alias from the README)
+set -euo pipefail
+
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+JAR="${PROJECT_DIR}/target/quarkus-app/quarkus-run.jar"
+PORT="${QUIFF_PORT:-8790}"
+REPO="$(git rev-parse --show-toplevel)"
+URL="http://localhost:${PORT}/"
+[[ $# -gt 0 ]] && URL+="?base=$1&head=WORKTREE"
+
+if [[ ! -f "${JAR}" ]]; then
+    echo "Building quiff (first run)..."
+    mvn -q -f "${PROJECT_DIR}/pom.xml" package -DskipTests
+fi
+
+echo "Comparing ${REPO} at ${URL} (Ctrl+C to stop)"
+( for _ in $(seq 1 50); do
+      curl -sf "http://localhost:${PORT}/api/refs" >/dev/null 2>&1 && { open "${URL}" 2>/dev/null || xdg-open "${URL}"; exit; }
+      sleep 0.2
+  done ) &
+exec java -Dquiff.repo="${REPO}" -Dquarkus.http.port="${PORT}" -jar "${JAR}"
