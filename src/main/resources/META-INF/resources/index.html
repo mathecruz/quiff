@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Quiff</title>
+<title>quiff</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/diff2html@3.4.48/bundles/css/diff2html.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
@@ -60,6 +60,9 @@
   .error { color: var(--del); white-space: pre-wrap; }
   .d2h-file-wrapper { border-color: var(--border); border-radius: 6px; scroll-margin-top: 12px; }
   .d2h-file-header { position: sticky; top: 0; z-index: 2; }
+  .expander { padding: 0 8px; border: 0; border-radius: 4px; background: none; color: var(--accent); font-size: 12px; line-height: 18px; }
+  .expander:hover { background: var(--hover); }
+  .expander:disabled { color: var(--fg-muted); cursor: wait; }
   @media (max-width: 900px) {
     .layout { grid-template-columns: 1fr; }
     .tree { display: none; }
@@ -197,7 +200,103 @@ function renderTree(node, depth = 0) {
   return html;
 }
 
-function renderFiles(files) {
+const EXPAND_STEP = 20;
+
+// Where a hunk sits on each side. A side with no lines in the hunk points at the line before it ("-5,0").
+function hunkBounds(block) {
+  const oldCount = block.lines.filter(l => l.type !== 'insert').length;
+  const newCount = block.lines.filter(l => l.type !== 'delete').length;
+  const oldBefore = oldCount ? block.oldStartLine - 1 : block.oldStartLine;
+  const newBefore = newCount ? block.newStartLine - 1 : block.newStartLine;
+  return { oldBefore, newBefore, oldAfter: oldBefore + oldCount + 1, newAfter: newBefore + newCount + 1 };
+}
+
+function highlight(hljs, text, lang) {
+  if (!hljs) return esc(text);
+  try {
+    return hljs.highlight(text, { language: hljs.getLanguage(lang) ? lang : 'plaintext', ignoreIllegals: true }).value;
+  } catch {
+    return esc(text);
+  }
+}
+
+function contextRows(lines, from, to, delta, hljs, lang) {
+  let html = '';
+  for (let n = from; n <= to; n++) {
+    html += `<tr><td class="d2h-code-linenumber d2h-cntx"><div class="line-num1">${n + delta}</div><div class="line-num2">${n}</div></td>` +
+      `<td class="d2h-cntx"><div class="d2h-code-line"><span class="d2h-code-line-prefix">&nbsp;</span>` +
+      `<span class="d2h-code-line-ctn hljs">${highlight(hljs, lines[n - 1] ?? '', lang)}</span></div></td></tr>`;
+  }
+  return html;
+}
+
+// A hidden range of new-side lines [from, to] that sits around the expander row; old = new + delta.
+// The range after the last hunk ends at the end of the file, which is only known once it is fetched.
+function renderExpander(gap) {
+  const cell = gap.row.querySelector('td');
+  const size = gap.to - gap.from + 1;
+  const buttons = [];
+  if (size <= EXPAND_STEP) buttons.push(['all', '↕', 'Expand all']);
+  else {
+    if (gap.down) buttons.push(['down', '↓', 'Expand down']);
+    if (gap.up) buttons.push(['up', '↑', 'Expand up']);
+  }
+  cell.innerHTML = buttons.map(([dir, icon, title]) => `<button class="expander" data-dir="${dir}" title="${title}">${icon}</button>`).join('');
+  cell.querySelectorAll('.expander').forEach(b => b.addEventListener('click', () => expand(gap, b.dataset.dir)));
+}
+
+async function expand(gap, dir) {
+  gap.row.querySelectorAll('.expander').forEach(b => b.disabled = true);
+  let lines;
+  try {
+    lines = await gap.load();
+  } catch (e) {
+    gap.row.querySelectorAll('.expander').forEach(b => { b.disabled = false; b.title = e.message; });
+    return;
+  }
+  gap.to = Math.min(gap.to, lines.length);
+  let { from, to } = gap;
+  if (dir === 'up') from = Math.max(from, to - EXPAND_STEP + 1);
+  if (dir === 'down') to = Math.min(to, from + EXPAND_STEP - 1);
+  gap.row.insertAdjacentHTML(dir === 'up' ? 'afterend' : 'beforebegin', contextRows(lines, from, to, gap.delta, gap.hljs, gap.lang));
+  if (dir === 'up') gap.to = from - 1;
+  else gap.from = to + 1;
+  if (gap.to < gap.from) gap.row.remove();
+  else renderExpander(gap);
+}
+
+// GitHub-style "expand context": arrows on each hunk header reveal the unchanged lines around it.
+function addExpanders(file, wrapper, head, hljs) {
+  if (file.isNew || file.isDeleted || !file.blocks.length) return;
+  const tbody = wrapper.querySelector('.d2h-diff-tbody');
+  const headers = [...tbody.children].filter(row => row.firstElementChild?.classList.contains('d2h-info'));
+  if (headers.length !== file.blocks.length) return;
+
+  let content;
+  const load = () => content ??= api('/api/file?' + new URLSearchParams({ ref: head, path: file.newName }))
+    .then(r => r.lines)
+    .catch(e => { content = undefined; throw e; });
+  const common = { load, hljs, lang: wrapper.dataset.lang };
+
+  let previous;
+  file.blocks.forEach((block, i) => {
+    const bounds = hunkBounds(block);
+    const gap = { ...common, row: headers[i], from: previous ? previous.newAfter : 1, to: bounds.newBefore,
+      delta: bounds.oldBefore - bounds.newBefore, up: true, down: i > 0 };
+    if (gap.to >= gap.from) renderExpander(gap);
+    previous = bounds;
+  });
+
+  // git shows 3 lines of context, so fewer after the last change means the file ends there.
+  const last = file.blocks[file.blocks.length - 1].lines;
+  const trailing = last.length - last.findLastIndex(l => l.type !== 'context') - 1;
+  if (trailing < 3) return;
+  tbody.insertAdjacentHTML('beforeend', '<tr><td class="d2h-code-linenumber d2h-info"></td><td class="d2h-info"><div class="d2h-code-line"></div></td></tr>');
+  renderExpander({ ...common, row: tbody.lastElementChild, from: previous.newAfter, to: Infinity,
+    delta: previous.oldAfter - previous.newAfter, up: false, down: true });
+}
+
+function renderFiles(files, head) {
   if (!files.length) {
     $('tree').innerHTML = '';
     $('diff').innerHTML = '<div class="empty">No changes between these refs.</div>';
@@ -216,6 +315,7 @@ function renderFiles(files) {
   ui.highlightCode();
 
   const wrappers = [...$('diff').querySelectorAll('.d2h-file-wrapper')];
+  wrappers.forEach((wrapper, index) => addExpanders(files[index], wrapper, head, ui.hljs));
   $('tree').querySelectorAll('.node.file').forEach(node => {
     node.addEventListener('click', () => wrappers[node.dataset.index]?.scrollIntoView({ behavior: 'smooth' }));
   });
@@ -245,7 +345,7 @@ async function load() {
     const files = Diff2Html.parse(data.diff, { matching: 'lines' });
     renderSummary(data, files);
     renderCommits(data.commits);
-    renderFiles(files);
+    renderFiles(files, data.head);
   } catch (e) {
     $('summary').innerHTML = '';
     $('tree').innerHTML = '';
@@ -257,7 +357,7 @@ async function init() {
   const refs = await api('/api/refs');
   const params = new URLSearchParams(location.search);
   $('repo').textContent = '— ' + refs.repository;
-  document.title = 'Compare · ' + refs.repository;
+  document.title = 'quiff · ' + refs.repository;
   fillSelect($('base'), refs, params.get('base') || refs.defaultBase, false);
   fillSelect($('head'), refs, params.get('head') || WORKTREE, true);
   $('ws').checked = params.get('w') === 'true';
