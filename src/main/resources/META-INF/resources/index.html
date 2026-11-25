@@ -4,22 +4,35 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>quiff</title>
+<link rel="icon" type="image/png" href="logo.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/diff2html@3.4.48/bundles/css/diff2html.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
 <style>
+  /* Red and green come from the logo's glasses: the left lens is what goes away, the right one what comes in. */
   :root {
     --bg: #ffffff; --bg-subtle: #f6f8fa; --border: #d0d7de; --fg: #1f2328; --fg-muted: #59636e;
-    --accent: #0969da; --add: #1a7f37; --del: #d1242f; --tab-active: #fd8c73; --hover: #eaeef2;
+    --accent: #0969da; --add: #128a24; --del: #d8130e; --hover: #eaeef2;
+    --brand-red: #e8140f; --brand-green: #03c017; --nav-h: 56px;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #0d1117; --bg-subtle: #151b23; --border: #3d444d; --fg: #f0f6fc; --fg-muted: #9198a1;
-      --accent: #4493f8; --add: #3fb950; --del: #f85149; --tab-active: #f78166; --hover: #212830;
+      --accent: #4493f8; --add: #2ecc40; --del: #ff4b42; --hover: #212830;
     }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif; }
+  .navbar { position: sticky; top: 0; z-index: 10; height: var(--nav-h); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; background: var(--bg-subtle); border-bottom: 1px solid var(--border); }
+  .brand { display: flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+  .brand img { width: 36px; height: 36px; border-radius: 8px; }
+  .github { display: flex; padding: 6px; border-radius: 6px; color: var(--fg); }
+  .github:hover { background: var(--hover); }
+  .brand:focus-visible, .github:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-color-scheme: dark) {
+    /* The black quiff disappears on a dark bar, so it sits on a light tile. */
+    .brand img { background: #f6f8fa; padding: 2px; }
+  }
   .page { max-width: 1680px; margin: 0 auto; padding: 24px 16px 64px; }
   h1 { font-size: 24px; font-weight: 400; margin: 0 0 4px; }
   .lead { color: var(--fg-muted); margin: 0 0 16px; }
@@ -35,7 +48,7 @@
   .add { color: var(--add); } .del { color: var(--del); }
   .tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
   .tab { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 12px; }
-  .tab.active { border-bottom-color: var(--tab-active); font-weight: 600; }
+  .tab.active { border-image: linear-gradient(90deg, var(--brand-red) 50%, var(--brand-green) 50%) 1; font-weight: 600; }
   .tab:hover { background: none; color: var(--accent); }
   .counter { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 10px; background: var(--hover); font-size: 12px; text-align: center; margin-left: 4px; }
   .hidden { display: none !important; }
@@ -46,7 +59,7 @@
   .commit .meta { color: var(--fg-muted); font-size: 12px; }
   .sha { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--fg-muted); }
   .layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; align-items: start; }
-  .tree { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: auto; border: 1px solid var(--border); border-radius: 6px; padding: 8px 0; font-size: 13px; }
+  .tree { position: sticky; top: calc(var(--nav-h) + 12px); max-height: calc(100vh - var(--nav-h) - 24px); overflow: auto; border: 1px solid var(--border); border-radius: 6px; padding: 8px 0; font-size: 13px; }
   .tree-filter { margin: 0 8px 8px; width: calc(100% - 16px); padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); font: inherit; }
   .node { display: flex; align-items: center; gap: 6px; padding: 2px 8px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .node:hover { background: var(--hover); }
@@ -58,8 +71,8 @@
   .s-added { background: var(--add); } .s-deleted { background: var(--del); } .s-changed { background: #d29922; } .s-renamed { background: var(--accent); }
   .empty, .error { padding: 32px; text-align: center; color: var(--fg-muted); border: 1px solid var(--border); border-radius: 6px; }
   .error { color: var(--del); white-space: pre-wrap; }
-  .d2h-file-wrapper { border-color: var(--border); border-radius: 6px; scroll-margin-top: 12px; }
-  .d2h-file-header { position: sticky; top: 0; z-index: 2; }
+  .d2h-file-wrapper { border-color: var(--border); border-radius: 6px; scroll-margin-top: calc(var(--nav-h) + 12px); }
+  .d2h-file-header.d2h-sticky-header { position: sticky; top: var(--nav-h); z-index: 2; }
   .expander { padding: 0 8px; border: 0; border-radius: 4px; background: none; color: var(--accent); font-size: 12px; line-height: 18px; }
   .expander:hover { background: var(--hover); }
   .expander:disabled { color: var(--fg-muted); cursor: wait; }
@@ -67,10 +80,17 @@
     .layout { grid-template-columns: 1fr; }
     .tree { display: none; }
     .opts { margin-left: 0; }
+    .navbar { padding: 0 16px; }
   }
 </style>
 </head>
 <body>
+<header class="navbar">
+  <a class="brand" href="/" title="Back to the default comparison"><img src="logo.png" alt="">quiff</a>
+  <a class="github" href="https://github.com/mathecruz/quiff" target="_blank" rel="noopener" title="quiff on GitHub" aria-label="quiff on GitHub">
+    <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg>
+  </a>
+</header>
 <div class="page">
   <h1>Comparing changes <span class="lead" id="repo"></span></h1>
   <p class="lead">Choose two refs to see what changed. "Working tree" includes staged, unstaged and untracked files.</p>
