@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/quiff.png" alt="quiff logo" width="240">
+  <img src="docs/images/quiff.svg" alt="quiff logo" width="240">
 </p>
 
 <p align="center">Local GitHub-style compare page for any Git repository. No GitHub, no push.</p>

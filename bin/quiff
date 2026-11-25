@@ -15,7 +15,7 @@ if [[ ! -f "${JAR}" ]]; then
     mvn -q -f "${PROJECT_DIR}/pom.xml" package -DskipTests
 fi
 
-echo "Comparing ${REPO} at ${URL} (Ctrl+C to stop)"
+echo "Quifferentiating ${REPO} at ${URL} (Ctrl+C to stop)"
 ( for _ in $(seq 1 50); do
       curl -sf "http://localhost:${PORT}/api/refs" >/dev/null 2>&1 && { open "${URL}" 2>/dev/null || xdg-open "${URL}"; exit; }
       sleep 0.2
